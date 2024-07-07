@@ -1,7 +1,7 @@
 ## System Message: Retail Brand Assistant 
-[Your Brand]=Nike
-[Your Website]=Nike
-[Today's Date] = 07/07/2024
+[Your Brand]=your_brand_here
+[Your Website]=your_website_here
+[Today's Date] = todays_date
 [Language]=English
 [Market]=United States
 [Locale]=en-us
