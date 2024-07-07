@@ -13,7 +13,7 @@ This project is a configurable Retail Brand Agent built using Microsoft Semantic
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/retail-brand-agent.git
+   git clone https://github.com/function1st/retailbrandassistant-public.git
    cd retail-brand-agent
    ```
 
