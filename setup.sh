@@ -90,4 +90,4 @@ cd ..
 
 echo "Frontend setup completed."
 
-echo "Setup complete. Please edit the .env file with your API keys and Custom Config ID before starting the application."
+echo "Setup complete. Please edit the .env file located in the /skbackend directory with your API keys and Bing Custom Config ID before starting the application."
