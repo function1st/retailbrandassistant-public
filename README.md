@@ -5,7 +5,7 @@ This project is a configurable Retail Brand Assistant built using **Microsoft Se
 
 | When retail brand experiences fail like this... | Retail Brand Assistant succeeds... |
 |:----------------------------------------------------------------------------:|:---------------------------------:|
-| <img src="readme-png/wholesale-fail.png" alt="Screenshot" width="450"> | <img src="readme-png/rba-wholesale.png" alt="Screenshot" width="250"> |
+| <img src="https://github.com/function1st/retailbrandassistant-public/assets/129132283/43d368a7-f62c-4e0d-9bd8-76f1e2fe00a1" alt="Screenshot" width="450"> | <img src="https://github.com/function1st/retailbrandassistant-public/assets/129132283/ec8f3794-be92-43b3-9c0b-7ee35f23fc4e" alt="Screenshot" width="250"> |
 
 ## Prerequisites
 
@@ -52,15 +52,15 @@ This project is a configurable Retail Brand Assistant built using **Microsoft Se
    - **Pinned Results**: Pin specific pages to the top of the search results.
    - **Block Certain Sites**: Exclude certain domains or URLs from search results.
   
-      <br><img src="readme-png/bingcs-urls.png" alt="Screenshot" width="450">
+      <br><img src="https://github.com/function1st/retailbrandassistant-public/assets/129132283/a7a80af8-9dc0-42f6-bbab-59f1b5ddd261" alt="Screenshot" width="450">
 
 #### Step 5: Publish Your Custom Search Instance
 
 1. Once you have added the necessary domains and customized your search instance, click on **Publish**.
 2. Confirm the details and click **Publish** again to make your custom search instance live.
    
-      <img src="readme-png/bingcs-publishhelp.png" alt="Screenshot" width="450">
-      <br><img src="readme-png/bingcs-publish.png" alt="Screenshot" width="450">
+      <img width="450" alt="bingcs-publishhelp" src="https://github.com/function1st/retailbrandassistant-public/assets/129132283/dfaee6c6-372a-45a3-8c1b-74bd9a79088b">
+      <br><img width="450" alt="bingcs-publish" src="https://github.com/function1st/retailbrandassistant-public/assets/129132283/214a2e9b-d0c1-4efd-afb4-03574df9f98b">
 
 
 #### Step 6: Retrieve API Key and Endpoint
