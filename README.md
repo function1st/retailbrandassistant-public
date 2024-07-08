@@ -11,7 +11,7 @@ This project is a configurable Retail Brand Agent built using Microsoft Semantic
 
 - [.NET SDK](https://dotnet.microsoft.com/download) (version 6.0 or later)
 - OpenAI API key
-- Bing CustomSearch instance and key
+- [Bing CustomSearch instance and key](https://www.customsearch.ai/)
 
 ## Bing CustomSearch Configuration - Skip if already configured
 #### Bing CustomSearch Prerequisites
