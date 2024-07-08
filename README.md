@@ -82,7 +82,6 @@ project_root/
 │   │   ├── App.js
 │   ├── package-lock.json
 │   └── package.json
-├── readme-png/
 ├── skbackend/
 │   ├── Program.cs
 │   ├── RetailContextPlugin.cs
