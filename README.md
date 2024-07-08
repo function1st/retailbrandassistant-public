@@ -71,6 +71,31 @@ This project is a configurable Retail Brand Assistant built using **Microsoft Se
 That's it! You've set up and used Bing Custom Search with the Custom Search UI, added domains, and published your custom search instance.
 
 ## Retail Brand Assistant Setup
+### Project Structure
+```
+project_root/
+├── reactfrontend/
+│   ├── public/
+│   ├── scripts/
+│   ├── src/
+│   │   ├── App.css
+│   │   ├── App.js
+│   ├── package-lock.json
+│   └── package.json
+├── readme-png/
+├── skbackend/
+│   ├── Program.cs
+│   ├── RetailContextPlugin.cs
+│   ├── SalesHelpPlugin.cs
+│   ├── SalesHelpPrompt.txt
+│   └── SystemMessage.txt
+├── README.md
+├── setup.sh
+├── start.sh
+├── startbackend.sh
+├── startfrontend.sh
+└── stop.sh
+```
 
 1. Clone the repository:
    ```bash
