@@ -1,7 +1,7 @@
 
-# Retail Brand Agent
+# Retail Brand Assistant
 
-This project is a configurable Retail Brand Agent built using Microsoft Semantic Kernel, Open AI, and Microsoft Bing CustomSearch. It allows brands to rapidly test and deploy a fully functioning AI Assistant for Customers that uses real-time page information to answer questions with very high accuracy and consistency.
+This project is a configurable Retail Brand Assistant built using **Microsoft Semantic Kernel** for AI Orchestration, Open AI gpt-4o Large Language Model, and **Microsoft Bing CustomSearch** for brand-specific search results. Using Retail Brand Assistant allows brands to rapidly test and deploy a fully functioning AI Assistant for Customers that uses real-time page information to answer questions with very high accuracy and consistency.
 
 | When retail brand experiences fail like this... | Retail Brand Assistant succeeds... |
 |:----------------------------------------------------------------------------:|:---------------------------------:|
@@ -101,7 +101,7 @@ That's it! You've set up and used Bing Custom Search with the Custom Search UI, 
    ```
    This will automatically update the current date in the system message and start both the backend and frontend.
 
-2. Interact with the Retail Brand Agent through the browser.
+2. Interact with the Retail Brand Assistant through the browser.
 
 3. To stop the application:
    ```bash
@@ -114,7 +114,7 @@ The setup script will help you configure the basic brand information and site in
 
 The current date is automatically updated each time you start the application using the start script.
 
-You can customize the Retail Brand Agent by modifying the following files:
+You can customize the Retail Brand Assistant by modifying the following files:
 
 - `SystemMessage.txt`: Contains the system message that defines the agent's behavior and how it uses real-time context.
 - `Program.cs`: Main Semantic Kernel logic and chat handling. In addition, the prompt logic for Plug-in orchrestration as well as Topic classification is found here.
