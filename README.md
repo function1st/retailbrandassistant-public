@@ -148,8 +148,437 @@ You can customize the Retail Brand Assistant by modifying the following files:
 
 **IMPORTANT:** This project is intended for educational purposes only and should not be used for production workloads. The creators and contributors of this project accept no responsibility for its functionality, reliability, or any consequences arising from its use.
 
-## Orchestration and Conversation Topic Classifers
-Explanation...
+# Orchestration and Conversation Topic Classifers
+Summary of Program.cs and Detailed Overview of Conversation and Topic Classification Focus
+
+## Table of Contents
+1. [Introduction](#introduction)
+2. [Semantic Kernel Configuration](#semantic-kernel-configuration)
+3. [Classifier for Plugin/Function Selection](#classifier-for-pluginfunction-selection)
+4. [Conversation Topic Classifier](#conversation-topic-classifier)
+5. [Main Message Handling](#main-message-handling)
+6. [Detailed Walkthrough of Conversation Flows](#detailed-walkthrough-of-conversation-flows)
+   6.1 [SalesHelp Flow](#saleshelp-flow)
+   6.2 [RetailContext Flow](#retailcontext-flow)
+   6.3 [General Flow](#general-flow)
+7. [Usage of Topic Classification Across Flows](#usage-of-topic-classification-across-flows)
+8. [Conclusion](#conclusion)
+
+## 1. Introduction
+
+This document provides a comprehensive walkthrough of the key components in Program.cs, focusing on the Semantic Kernel configuration, the main conversation flows, and the crucial role of Conversation Topic Classification throughout the system.
+
+## 2. Semantic Kernel Configuration
+
+The Semantic Kernel is configured as follows:
+
+```csharp
+builder.Services.AddSingleton<Kernel>(sp =>
+{
+    IKernelBuilder kernelBuilder = Kernel.CreateBuilder()
+        .AddOpenAIChatCompletion(
+            modelId: "gpt-4o",
+            apiKey: Environment.GetEnvironmentVariable("OPENAI_API_KEY")!
+        );
+
+    var retailContextPlugin = sp.GetRequiredService<RetailContextPlugin>();
+    kernelBuilder.Plugins.AddFromObject(retailContextPlugin, "RetailContext");
+    kernelBuilder.Plugins.AddFromObject(new SalesHelpPlugin(), "SalesHelp");
+
+    return kernelBuilder.Build();
+});
+
+builder.Services.AddSingleton<IChatCompletionService>(sp =>
+{
+    var kernel = sp.GetRequiredService<Kernel>();
+    return kernel.GetRequiredService<IChatCompletionService>();
+});
+```
+
+Key points:
+- The Kernel uses the "gpt-4o" model for chat completion, which is the latest model from OpenAI as of this project.
+- Two plugins are added: RetailContextPlugin and SalesHelpPlugin (on top of a 'General' catch all plugin)
+- A separate IChatCompletionService is registered, extracted from the Kernel.
+
+## 3. Classifier for Plugin/Function Selection
+
+The system uses a classifier to determine which plugin or function to use for each user input:
+
+```csharp
+private async Task<string> ClassifyUserInput(string userInput, string connectionId)
+{
+    var chatHistory = _chatHistories[connectionId];
+    var recentHistory = string.Join("\n", chatHistory.TakeLast(5).Select(m => $"{m.Role}: {m.Content}"));
+
+    var promptToClassify = @$"Classify the following user input into one of these categories:
+    1. 'SalesHelp' if the user is explicitly asking for 'human' assistance, needs 'human' help with orders, returns, or account-specific issues. This should only be used for transferring to the right human sales help. Do not use this for general help if a human isn't specifically mentioned. If a transfer to human sales help has just occurred only use SalesHelp if a human is specifically being asked for in the latest user message.
+    2. 'RetailContext' if the query will benefit from real-time information from approved and official sources. This may be for specific product information, feature details, pricing, policy details, support topics, deal information, troubleshooting articles, facts about the company or directors, investor relations, etc. Nearly any topic can benefit from real-time content so this should be used frequently. If 'RetailContext' has already been leveraged for the same specific topic and a follow up question is being asked, consider using 'General' for any follow up questions about the same topic unless a new query is needed.
+    3. 'General' for any other type of query, general chitchat, or follow up questions on an existing topic where 'RetailContext' already retrieved real-time information that can be reused. 
+
+    If a transfer to human sales help has just occurred, classify as 'General' or 'RetailContext' unless the user explicitly asks for human assistance again in their most recent message.
+
+    Current mode: {(_currentTopics[connectionId] == "SalesHelp" ? "SalesHelp" : "Not SalesHelp")}
+
+    Recent conversation history:
+    {recentHistory}
+
+    Respond with only the category name.
+
+    User Input: {userInput}
+
+    Category:";
+
+    var classificationResult = await _chatCompletionService.GetChatMessageContentAsync(promptToClassify);
+    return classificationResult.Content?.Trim() ?? "General";
+}
+```
+
+This classifier returns one of three categories: SalesHelp, RetailContext, or General, based on the user's input and recent conversation history.
+
+## 4. Conversation Topic Classifier
+
+The Conversation Topic Classifier is a crucial component that determines the current topic of the conversation:
+
+```csharp
+private async Task<string> ClassifyTopic(string userInput, string connectionId)
+{
+    var chatHistory = _chatHistories[connectionId];
+    var recentHistory = string.Join("\n", chatHistory.TakeLast(5).Select(m => $"{m.Role}: {m.Content}"));
+
+    var currentTopic = _currentTopics[connectionId];
+
+    var promptToClassify = @$"
+Current topic: {currentTopic}
+
+Recent conversation history:
+{recentHistory}
+
+User Input: {userInput}
+
+Based on the current topic, recent conversation history, and the latest user input, determine the most relevant and specific topic for the current state of the conversation. If the topic has changed, provide the new topic. If it hasn't changed significantly, return the current topic. Only return the topic and without any commentary.
+
+Topic:";
+
+    var classificationResult = await _chatCompletionService.GetChatMessageContentAsync(promptToClassify);
+    return classificationResult.Content?.Trim() ?? currentTopic;
+}
+```
+
+This classifier:
+- Takes into account the current topic, recent conversation history, and the latest user input.
+- Determines if the topic has changed or remained the same.
+- Returns either the current topic (if unchanged) or a new topic.
+
+The topic classification is used to:
+- Maintain context across multiple user inputs
+- Determine when to fetch new retail context or reuse existing information
+- Provide more relevant and coherent responses
+
+## 5. Main Message Handling
+
+The main message handling is implemented in the `SendMessage` method:
+
+```csharp
+public async Task SendMessage(string message)
+{
+    string connectionId = Context.ConnectionId;
+    var chatHistory = _chatHistories[connectionId];
+    chatHistory.AddUserMessage(message);
+
+    try
+    {
+        var pluginToUse = await ClassifyUserInput(message, connectionId);
+        await SendSystemMessageOnce(connectionId, "PluginSelection", $"Selected plugin: {pluginToUse}");
+
+        switch (pluginToUse)
+        {
+            case "SalesHelp":
+                await HandleSalesHelpQuery(message, connectionId);
+                break;
+            case "RetailContext":
+                await HandleRetailContextQuery(message, connectionId);
+                break;
+            default:
+                await HandleGeneralQuery(message, connectionId);
+                break;
+        }
+
+        // Classify the current topic and send it to the client
+        var currentTopic = await ClassifyTopic(message, connectionId);
+        _currentTopics[connectionId] = currentTopic;
+        await SendSystemMessageOnce(connectionId, "CurrentTopic", $"Current topic: {currentTopic}");
+    }
+    catch (Exception ex)
+    {
+        // Error handling
+    }
+}
+```
+
+This method orchestrates the entire conversation flow, from classifying the user input to handling the query and updating the conversation topic.
+
+## 6. Detailed Walkthrough of Conversation Flows
+
+### 6.1 SalesHelp Flow
+
+```csharp
+private async Task HandleSalesHelpQuery(string userInput, string connectionId)
+{
+    var chatHistory = _chatHistories[connectionId];
+    var salesHelpPrompt = await File.ReadAllTextAsync("SalesHelpPrompt.txt");
+    var salesHelpHistory = new ChatHistory(salesHelpPrompt);
+
+    foreach (var message in chatHistory.TakeLast(5))
+    {
+        salesHelpHistory.AddMessage(message.Role, message.Content);
+    }
+
+    salesHelpHistory.AddUserMessage(userInput);
+
+    var executionSettings = new OpenAIPromptExecutionSettings
+    {
+        ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions
+    };
+
+    var response = await _chatCompletionService.GetChatMessageContentAsync(salesHelpHistory, executionSettings);
+    var salesInfo = response.Content ?? string.Empty;
+
+    var (shouldTransfer, transferInfo) = ShouldTransfer(salesInfo);
+    if (shouldTransfer)
+    {
+        await Clients.Caller.SendAsync("ReceiveMessage", "Transferring you now...");
+        await SendSystemMessageOnce(connectionId, "Transfer", $"Transfer initiated to {transferInfo.location}");
+        chatHistory.AddAssistantMessage("Transferring you now...");
+        _currentTopics[connectionId] = "";  // Reset the topic after transfer
+    }
+    else
+    {
+        await Clients.Caller.SendAsync("ReceiveMessage", salesInfo);
+        chatHistory.AddAssistantMessage(salesInfo);
+        _currentTopics[connectionId] = "SalesHelp";  // Maintain SalesHelp topic
+    }
+}
+```
+
+The SalesHelp flow handles queries requiring human assistance. It either provides AI-generated assistance or initiates a transfer to a human agent when necessary. SalesHelp is a simple sample implementation of how a transfer plug-in might work, providing proof of concept for a full implementation.
+
+### 6.2 RetailContext Flow
+
+```csharp
+private async Task HandleRetailContextQuery(string userInput, string connectionId)
+{
+    var chatHistory = _chatHistories[connectionId];
+    var currentTopic = _currentTopics[connectionId];
+    var retailContextCache = _retailContextCaches[connectionId];
+
+    await SendSystemMessageOnce(connectionId, "SearchQuery", "Generating search query...");
+    var searchQueryResult = await RetryOperationAsync(() => 
+        _kernel.InvokeAsync(_searchQueryFunction, new KernelArguments 
+        { 
+            ["history"] = string.Join("\n", chatHistory.Select(m => $"{m.Role}: {m.Content}")),
+            ["input"] = userInput 
+        }));
+    var searchQuery = searchQueryResult.GetValue<string>();
+
+    await SendSystemMessageOnce(connectionId, "SearchQueryResult", $"Generated search query: {searchQuery}");
+
+    string retailContextJson;
+    if (retailContextCache.TryGetValue(currentTopic, out var cachedContext))
+    {
+        await SendSystemMessageOnce(connectionId, "CacheUse", "Using cached RetailContext data");
+        retailContextJson = cachedContext;
+    }
+    else
+    {
+        await SendSystemMessageOnce(connectionId, "RetailContext", "Calling RetailContextPlugin...");
+        var retailContextFunction = _kernel.Plugins["RetailContext"]["GetRetailContext"];
+        var retailContextResult = await RetryOperationAsync(() => _kernel.InvokeAsync(retailContextFunction, new KernelArguments { ["query"] = searchQuery }));
+        retailContextJson = retailContextResult.GetValue<string>();
+
+        retailContextCache[currentTopic] = retailContextJson;
+    }
+
+    string prompt = $@"Answer the question using Real-time Context. The Real-time Context is a JSON array where each object represents a webpage and contains the following fields:
+    - PageTitle: The title of the webpage
+    - PageUrl: The URL of the webpage
+    - ParsedPageText: The main content of the webpage
+    - Hyperlinks: An array of important links on the page, each with a Url and Text field
+
+    Use this structured data to provide a comprehensive and accurate answer. When referencing information, mention the source URL.
+
+    Here is the **Real-time Context:** {retailContextJson}
+
+    **User Question:** {userInput}
+
+    **Response:**";
+
+    await GenerateAndStreamResponse(prompt, connectionId);
+}
+```
+
+The RetailContext flow handles queries requiring real-time information. It generates a search query, fetches or reuses retail context data, and uses this data to generate a response. Don't let the name "RetailContext" limit the applicability as this will work for any site and brand.
+
+### 6.3 General Flow
+
+```csharp
+private async Task HandleGeneralQuery(string userInput, string connectionId)
+{
+    var currentTopic = _currentTopics[connectionId];
+    string prompt = $"The current conversation topic is: {currentTopic}. Please provide a friendly and helpful response to the following user input, keeping in mind your role, guidelines, the conversation history, and the current topic: {userInput}";
+    await GenerateAndStreamResponse(prompt, connectionId);
+}
+
+private async Task GenerateAndStreamResponse(string prompt, string connectionId)
+{
+    var chatHistory = _chatHistories[connectionId];
+    var executionSettings = new OpenAIPromptExecutionSettings
+    {
+        ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions
+    };
+
+    var fullHistory = new ChatHistory(chatHistory);
+    fullHistory.AddUserMessage(prompt);
+
+    var response = new StringBuilder();
+    var isFirstChunk = true;
+
+    await foreach (var content in _chatCompletionService.GetStreamingChatMessageContentsAsync(
+        fullHistory,
+        executionSettings: executionSettings,
+        kernel: _kernel))
+    {
+        if (content.Content is not null)
+        {
+            if (isFirstChunk)
+            {
+                await Clients.Caller.SendAsync("ReceiveMessage", content.Content);
+                isFirstChunk = false;
+            }
+            else
+            {
+                await Clients.Caller.SendAsync("ReceiveMessageStream", content.Content);
+            }
+            response.Append(content.Content);
+        }
+    }
+
+    string responseString = response.ToString();
+    if (!string.IsNullOrEmpty(responseString))
+    {
+        chatHistory.AddAssistantMessage(responseString);
+    }
+}
+```
+
+The General flow handles queries that **don't require specific retail context or human assistance.** It generates a response based on the current topic and conversation history, highly leveraging the system prompt and general LLM knowledge.
+
+## 7. Usage of Topic Classification Across Flows
+
+The topic classification plays a crucial role in all conversation flows:
+
+1. **In the main message handling:**
+   - After each query is handled, the topic is reclassified:
+     ```csharp
+     var currentTopic = await ClassifyTopic(message, connectionId);
+     _currentTopics[connectionId] = currentTopic;
+     ```
+   - This ensures the topic is updated based on the latest interaction.
+
+2. **In the SalesHelp flow:**
+   - The topic is set to "SalesHelp" if no transfer occurs:
+     ```csharp
+     _currentTopics[connectionId] = "SalesHelp";
+     ```
+   - The topic is reset if a transfer occurs:
+     ```csharp
+     _currentTopics[connectionId] = "";
+     ```
+   - This allows the system to maintain context within a SalesHelp interaction and reset when appropriate.
+
+3. **In the RetailContext flow:**
+   - The current topic is used as a key for caching retail context:
+     ```csharp
+     if (retailContextCache.TryGetValue(currentTopic, out var cachedContext))
+     {
+         // Use cached context
+     }
+     else
+     {
+         // Fetch new context and cache it
+         retailContextCache[currentTopic] = retailContextJson;
+     }
+     ```
+   - This allows for efficient reuse of relevant context when the topic hasn't changed.
+   - When the topic changes, new context is fetched, ensuring up-to-date information.
+
+4. **In the General flow:**
+   - The current topic is included in the prompt:
+     ```csharp
+     string prompt = $"The current conversation topic is: {currentTopic}. ...";
+     ```
+   - This ensures the AI's response is contextually relevant to the ongoing conversation.
+
+5. **Continuous topic tracking:**
+   - The topic classification result is stored and used across multiple turns of the conversation:
+     ```csharp
+     _currentTopics[connectionId] = currentTopic;
+     ```
+   - This persistent tracking allows the system to maintain context over time, influencing:
+     a. Which plugin is selected for handling queries (via the `ClassifyUserInput` method).
+     b. How retail context is cached and reused.
+     c. The context provided to the AI for generating responses.
+
+6. **Influence on plugin selection:**
+   - The current topic influences the `ClassifyUserInput` method:
+     ```csharp
+     Current mode: {(_currentTopics[connectionId] == "SalesHelp" ? "SalesHelp" : "Not SalesHelp")}
+     ```
+   - This helps maintain continuity in SalesHelp interactions and prevents unnecessary switches between modes.
+
+7. **Adaptive response generation:**
+   - In all flows, the current topic helps tailor the AI's responses to the ongoing conversation context.
+   - For example, in the RetailContext flow, the topic influences the search query generation:
+     ```csharp
+     var searchQueryResult = await RetryOperationAsync(() => 
+         _kernel.InvokeAsync(_searchQueryFunction, new KernelArguments 
+         { 
+             ["history"] = string.Join("\n", chatHistory.Select(m => $"{m.Role}: {m.Content}")),
+             ["input"] = userInput 
+         }));
+     ```
+   - The search query function can use the conversation history, which implicitly includes the topic progression, to generate more relevant queries.
+
+8. **Topic change detection:**
+   - The `ClassifyTopic` method is designed to detect both subtle and significant topic changes:
+     ```csharp
+     Based on the current topic, recent conversation history, and the latest user input, determine the most relevant and specific topic for the current state of the conversation. If the topic has changed, provide the new topic. If it hasn't changed significantly, return the current topic.
+     ```
+   - This allows the system to maintain topic continuity when appropriate, but also adapt when the conversation shifts.
+
+9. **Client-side awareness:**
+   - The current topic is sent to the client:
+     ```csharp
+     await SendSystemMessageOnce(connectionId, "CurrentTopic", $"Current topic: {currentTopic}");
+     ```
+   - This can be used for UI/UX purposes, such as displaying the current context to the user or adjusting the interface based on the conversation topic.
+
+By leveraging the topic classification throughout the system, the conversation maintains coherence and relevance across multiple interactions, adapting its behavior based on the evolving focus of the conversation. This dynamic topic tracking enables the system to provide more contextually appropriate responses, efficiently manage resources through caching, and create a more natural, context-aware conversation flow.
+
+## 8. Conclusion
+
+The Program.cs file implements a sophisticated conversational AI system that leverages the Semantic Kernel, custom plugins, and intelligent classifiers to provide context-aware, real-time responses to user queries. The system's core strengths include:
+
+1. **Adaptive conversation handling:** The use of plugin/function classification allows the system to route queries to the most appropriate handler (SalesHelp, RetailContext, or General).
+
+2. **Dynamic topic tracking:** The Conversation Topic Classifier maintains context across multiple interactions, enabling more coherent and relevant responses.
+
+3. **Efficient information retrieval:** The RetailContext flow combines real-time information fetching with intelligent caching based on conversation topics.
+
+4. **Seamless human integration:** The SalesHelp flow provides a sample of how to orchestrate AI assistance while also facilitating smooth transfers to human agents when necessary.
+
+5. **Contextual response generation:** All flows leverage the current topic and conversation history to generate more relevant and coherent responses.
+
+
  
 # Real-time Context Plugin - RetailContextPlugin Code Walkthrough
 
@@ -165,7 +594,6 @@ Explanation...
 3.6 [Link Extraction](#link-extraction)
 4. [Key Features and Optimizations](#key-features-and-optimizations)
 5. [Integration with Program.cs](#integration-with-programcs)
-6. [Conclusion](#conclusion)
 
 ## 1. Introduction
 
@@ -940,11 +1368,7 @@ The Program.cs file sets up the environment and configuration for the RetailCont
 
 These integrations in Program.cs ensure that the RetailContextPlugin is properly configured, optimized, and integrated into the larger application ecosystem.
 
-## 6. Conclusion
-
-By providing rich, context-aware data from real-time web sources, the RetailContextPlugin significantly enhances the capability of AI systems to generate informed and accurate responses to retail-related queries. Its design allows for easy integration into larger systems while maintaining flexibility and performance.
-
-
+# Conclusion
 **Disclaimer**
 Users of this project are solely responsible for ensuring their use complies with the terms and conditions of all third-party services utilized, including but not limited to Bing Custom Search, Azure services, and OpenAI. Users must also ensure their use of this project adheres to all applicable local, national, and international laws and regulations.
 
