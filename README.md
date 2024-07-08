@@ -951,7 +951,7 @@ This method integrates with OpenAI's API to refine the search results obtained f
    - A system message is defined, instructing OpenAI on how to process the input and format the output, and asking for "up to three" URLs, giving some variability in the number that is most suited to the user's question.
    - A user message is constructed, combining the original query and the Bing search results.
    - The request object is created with the following properties:
-     - `model`: Set to "gpt-4o", likely a custom or fine-tuned version of GPT-4 for this specific task.
+     - `model`: Set to "gpt-4o" for this specific task.
      - `messages`: An array containing the system and user messages.
      - `max_tokens`: Limited to 150 to ensure a concise response.
 
