@@ -29,8 +29,8 @@ body, html {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  position: relative;
 }
-
 
 .connecting-container, .loading-container {
   display: flex;
@@ -77,8 +77,8 @@ body, html {
   display: flex;
   margin-bottom: 4px;
   max-width: 90%;
-  position: relative; /* Add this to ensure z-index works properly */
-  z-index: 1; /* Lower z-index than the header */
+  position: relative;
+  z-index: 1;
 }
 
 .message.user {
@@ -182,7 +182,6 @@ body, html {
   margin-top: 8px;
 }
 
-/* Add table styling */
 table {
   width: 100%;
   border-collapse: collapse;
@@ -211,25 +210,6 @@ th {
   text-align: center;
 }
 
-/* Add these new styles to your existing App.css */
-
-/* Adjusting list styles for markdown content */
-.message-content ul,
-.message-content ol {
-  padding-left: 20px;
-  margin: 0.5em 0;
-}
-
-.message-content li {
-  margin-bottom: 0.25em;
-}
-
-/* Adjusting paragraph margins in markdown content */
-.message-content p {
-  margin: 0.5em 0;
-}
-
-/* If nested lists are still too indented, you can add this rule */
 .message-content ul ul,
 .message-content ol ol,
 .message-content ul ol,
@@ -237,19 +217,18 @@ th {
   padding-left: 15px;
 }
 
-/* Ensure code blocks don't overflow */
 .message-content pre {
   white-space: pre-wrap;
   word-wrap: break-word;
 }
 
-/* Optional: Style inline code */
 .message-content code {
   background-color: #f0f0f0;
   padding: 2px 4px;
   border-radius: 3px;
   font-family: monospace;
 }
+
 .spinner {
   display: inline-block;
   text-align: center;
@@ -279,10 +258,47 @@ th {
 }
 
 .generating-text {
-  font-size: 0.9em; /* Adjust this value as needed */
+  font-size: 0.9em;
 }
 
 .system-update-text {
-  font-size: 0.6em; /* Adjust this value to make system messages smaller */
-  color: #666; /* Optional: change the color to differentiate system messages */
+  font-size: 0.6em;
+  color: #666;
+}
+
+/* New styles for metrics display */
+.metrics-display {
+  position: absolute;
+  bottom: 10px;
+  left: -300px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  padding: 10px;
+  font-size: 0.8em;
+  max-width: 300px;
+  z-index: 100;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.metrics-display h3 {
+  margin-top: 10px;
+  margin-bottom: 5px;
+}
+
+.metrics-display ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.metrics-display li {
+  margin-bottom: 3px;
+}
+
+.metrics-display .current-topic {
+  font-size: 0.9em;
+  color: #333;
+  margin-top: 5px;
 }
