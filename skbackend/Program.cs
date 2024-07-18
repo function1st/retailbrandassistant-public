@@ -325,7 +325,7 @@ public class ChatHub : Hub
                 ["history"] = string.Join("\n", chatHistory.Select(m => $"{m.Role}: {m.Content}")),
                 ["input"] = userInput 
             }));
-        var searchQuery = searchQueryResult.GetValue<string>();
+        var searchQuery = searchQueryResult.GetValue<string>() ?? userInput;
 
         if (string.IsNullOrWhiteSpace(searchQuery))
         {
@@ -353,7 +353,7 @@ public class ChatHub : Hub
             var retailContextResult = await RetryOperationAsync(() => _kernel.InvokeAsync(retailContextFunction, new KernelArguments { ["query"] = searchQuery }));
             parallelStopwatch.Stop();
 
-            retailContextJson = retailContextResult.GetValue<string>();
+            retailContextJson = retailContextResult.GetValue<string>() ?? string.Empty;
             functionStopwatch.Stop();
 
             metrics.FunctionDuration = functionStopwatch.ElapsedMilliseconds;
@@ -364,7 +364,7 @@ public class ChatHub : Hub
             retailContextCache[currentTopic] = retailContextJson;
         }
 
-        await SendSystemMessageOnce(connectionId, "RetailContextResponse", $"RetailContextPlugin response received. Length: {retailContextJson?.Length ?? 0}");
+        await SendSystemMessageOnce(connectionId, "RetailContextResponse", $"RetailContextPlugin response received. Length: {retailContextJson.Length}");
 
         if (string.IsNullOrWhiteSpace(retailContextJson))
         {
@@ -444,7 +444,7 @@ public class ChatHub : Hub
         var isFirstChunk = true;
         var metrics = _chatMetrics[connectionId];
 
-        metrics.TotalInputTokens += EstimateTokenCount(string.Join("\n", fullHistory.Select(m => m.Content)));
+        metrics.TotalInputTokens += EstimateTokenCount(string.Join("\n", fullHistory.Select(m => m.Content ?? "")));
 
         await foreach (var content in _chatCompletionService.GetStreamingChatMessageContentsAsync(
             fullHistory,
