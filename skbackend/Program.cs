@@ -18,6 +18,7 @@ using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Cors;
 using System.Net.Security;
+using System.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -71,7 +72,7 @@ builder.Services.AddSingleton<Kernel>(sp =>
 {
     IKernelBuilder kernelBuilder = Kernel.CreateBuilder()
         .AddOpenAIChatCompletion(
-            modelId: "gpt-4o",
+            modelId: "gpt-4o-mini",
             apiKey: Environment.GetEnvironmentVariable("OPENAI_API_KEY")!
         );
 
@@ -114,11 +115,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseRouting();
 app.UseCors();
-app.UseEndpoints(endpoints =>
-{
-    endpoints.MapHub<ChatHub>("/chatHub");
-    endpoints.MapControllers();
-});
+
+app.MapHub<ChatHub>("/chatHub");
+app.MapControllers();
 
 app.Run();
 
@@ -132,6 +131,8 @@ public class ChatHub : Hub
     private static readonly ConcurrentDictionary<string, string> _currentTopics = new();
     private static readonly ConcurrentDictionary<string, Dictionary<string, string>> _retailContextCaches = new();
     private readonly ConcurrentDictionary<string, HashSet<string>> _sentSystemMessages = new();
+    private static readonly ConcurrentDictionary<string, ChatMetrics> _chatMetrics = new();
+    private readonly Stopwatch _stopwatch = new Stopwatch();
 
     public ChatHub(Kernel kernel, IChatCompletionService chatCompletionService, KernelFunction searchQueryFunction)
     {
@@ -157,6 +158,7 @@ public class ChatHub : Hub
         {
             _currentTopics[connectionId] = "";
             _retailContextCaches[connectionId] = new Dictionary<string, string>();
+            _chatMetrics[connectionId] = new ChatMetrics();
 
             // Send the welcome message
             string brand = GetBrandFromSystemMessage(systemMessage);
@@ -178,6 +180,9 @@ public class ChatHub : Hub
         string connectionId = Context.ConnectionId;
         var chatHistory = _chatHistories[connectionId];
         chatHistory.AddUserMessage(message);
+
+        _stopwatch.Restart();
+        var metrics = _chatMetrics.GetOrAdd(connectionId, _ => new ChatMetrics());
 
         try
         {
@@ -211,6 +216,11 @@ public class ChatHub : Hub
         {
             await Clients.Caller.SendAsync("ErrorMessage", "An error occurred while processing your message.");
             Console.Error.WriteLine($"Error in SendMessage: {ex}");
+        }
+        finally
+        {
+            metrics.EndToEndDuration = _stopwatch.ElapsedMilliseconds;
+            await UpdateMetrics(connectionId);
         }
     }
 
@@ -272,7 +282,7 @@ public class ChatHub : Hub
 
         foreach (var message in chatHistory.TakeLast(5))
         {
-            salesHelpHistory.AddMessage(message.Role, message.Content);
+            salesHelpHistory.AddMessage(message.Role, message.Content ?? string.Empty);
         }
 
         salesHelpHistory.AddUserMessage(userInput);
@@ -306,6 +316,7 @@ public class ChatHub : Hub
         var chatHistory = _chatHistories[connectionId];
         var currentTopic = _currentTopics[connectionId];
         var retailContextCache = _retailContextCaches[connectionId];
+        var metrics = _chatMetrics[connectionId];
 
         await SendSystemMessageOnce(connectionId, "SearchQuery", "Generating search query...");
         var searchQueryResult = await RetryOperationAsync(() => 
@@ -334,8 +345,21 @@ public class ChatHub : Hub
         {
             await SendSystemMessageOnce(connectionId, "RetailContext", "Calling RetailContextPlugin...");
             var retailContextFunction = _kernel.Plugins["RetailContext"]["GetRetailContext"];
+            var functionStopwatch = new Stopwatch();
+            functionStopwatch.Start();
+
+            var parallelStopwatch = new Stopwatch();
+            parallelStopwatch.Start();
             var retailContextResult = await RetryOperationAsync(() => _kernel.InvokeAsync(retailContextFunction, new KernelArguments { ["query"] = searchQuery }));
+            parallelStopwatch.Stop();
+
             retailContextJson = retailContextResult.GetValue<string>();
+            functionStopwatch.Stop();
+
+            metrics.FunctionDuration = functionStopwatch.ElapsedMilliseconds;
+            metrics.ContextCharacterLength += retailContextJson.Length;
+            metrics.TotalParallelOperationTime += parallelStopwatch.ElapsedMilliseconds;
+            metrics.TotalParallelOperations++;
 
             retailContextCache[currentTopic] = retailContextJson;
         }
@@ -395,6 +419,8 @@ public class ChatHub : Hub
             await SendSystemMessageOnce(connectionId, "RawJson", $"Raw JSON: {retailContextJson}");
             await HandleGeneralQuery(userInput, connectionId);
         }
+
+        await UpdateMetrics(connectionId);
     }
 
     private async Task HandleGeneralQuery(string userInput, string connectionId)
@@ -416,6 +442,9 @@ public class ChatHub : Hub
 
         var response = new StringBuilder();
         var isFirstChunk = true;
+        var metrics = _chatMetrics[connectionId];
+
+        metrics.TotalInputTokens += EstimateTokenCount(string.Join("\n", fullHistory.Select(m => m.Content)));
 
         await foreach (var content in _chatCompletionService.GetStreamingChatMessageContentsAsync(
             fullHistory,
@@ -426,6 +455,7 @@ public class ChatHub : Hub
             {
                 if (isFirstChunk)
                 {
+                    metrics.TTFT = _stopwatch.ElapsedMilliseconds;
                     await Clients.Caller.SendAsync("ReceiveMessage", content.Content);
                     isFirstChunk = false;
                 }
@@ -441,7 +471,14 @@ public class ChatHub : Hub
         if (!string.IsNullOrEmpty(responseString))
         {
             chatHistory.AddAssistantMessage(responseString);
+            metrics.TotalOutputTokens += EstimateTokenCount(responseString);
         }
+    }
+
+    private int EstimateTokenCount(string text)
+    {
+        // A very rough estimate: assume 1 token is about 4 characters
+        return text.Length / 4;
     }
 
     private async Task<T> RetryOperationAsync<T>(Func<Task<T>> operation, int maxRetries = 3, int delayMilliseconds = 1000)
@@ -478,7 +515,7 @@ public class ChatHub : Hub
                 int jsonStart = salesInfo.IndexOf('{');
                 if (jsonStart != -1)
                 {
-                    string jsonPart = salesInfo.Substring(jsonStart);
+                    string jsonPart = salesInfo[jsonStart..];
                     var transferInfo = JsonSerializer.Deserialize<TransferInfo>(jsonPart);
                     return (true, transferInfo ?? new TransferInfo { action = "transfer", location = "unknown" });
                 }
@@ -511,6 +548,12 @@ public class ChatHub : Hub
         }
     }
 
+    private async Task UpdateMetrics(string connectionId)
+    {
+        var metrics = _chatMetrics[connectionId];
+        await Clients.Caller.SendAsync("UpdateMetrics", metrics);
+    }
+
     public override Task OnDisconnectedAsync(Exception? exception)
     {
         string connectionId = Context.ConnectionId;
@@ -518,6 +561,7 @@ public class ChatHub : Hub
         _chatHistories.TryRemove(connectionId, out _);
         _currentTopics.TryRemove(connectionId, out _);
         _retailContextCaches.TryRemove(connectionId, out _);
+        _chatMetrics.TryRemove(connectionId, out _);
         return base.OnDisconnectedAsync(exception);
     }
 }
@@ -526,6 +570,19 @@ public class TransferInfo
 {
     public string action { get; set; } = "transfer";
     public string location { get; set; } = "unknown";
+}
+
+public class ChatMetrics
+{
+    public long TTFT { get; set; }
+    public long EndToEndDuration { get; set; }
+    public long FunctionDuration { get; set; }
+    public int ContextCharacterLength { get; set; }
+    public int TotalInputTokens { get; set; }
+    public int TotalOutputTokens { get; set; }
+    public long TotalParallelOperationTime { get; set; }
+    public int TotalParallelOperations { get; set; }
+    public long AverageParallelOperationTime => TotalParallelOperations > 0 ? TotalParallelOperationTime / TotalParallelOperations : 0;
 }
 
 [ApiController]
