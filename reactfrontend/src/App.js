@@ -15,6 +15,27 @@ const Spinner = () => (
 
 const hideSystemMessages = process.env.REACT_APP_HIDE_SYSTEM_MESSAGES === 'true';
 
+function MetricsDisplay({ metrics, currentTopic }) {
+  return (
+    <div className="metrics-display">
+      <h3>Chat Metrics</h3>
+      <ul>
+        <li>TTFT: {metrics.ttft} ms</li>
+        <li>End-to-End Duration: {metrics.endToEndDuration} ms</li>
+        <li>Function Duration: {metrics.functionDuration} ms</li>
+        <li>Context Character Length: {metrics.contextCharacterLength}</li>
+        <li>Total Input Tokens: {metrics.totalInputTokens}</li>
+        <li>Total Output Tokens: {metrics.totalOutputTokens}</li>
+        <li>Total Parallel Operation Time: {metrics.totalParallelOperationTime} ms</li>
+        <li>Total Parallel Operations: {metrics.totalParallelOperations}</li>
+        <li>Average Parallel Operation Time: {metrics.averageParallelOperationTime} ms</li>
+      </ul>
+      <h3>Current Topic</h3>
+      <div className="current-topic">{currentTopic || 'No topic set'}</div>
+    </div>
+  );
+}
+
 function App() {
   const [connection, setConnection] = useState(null);
   const [chat, setChat] = useState([]);
@@ -24,6 +45,18 @@ function App() {
   const [error, setError] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingMessage, setGeneratingMessage] = useState('');
+  const [currentTopic, setCurrentTopic] = useState('');
+  const [metrics, setMetrics] = useState({
+    ttft: 0,
+    endToEndDuration: 0,
+    functionDuration: 0,
+    contextCharacterLength: 0,
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    totalParallelOperationTime: 0,
+    totalParallelOperations: 0,
+    averageParallelOperationTime: 0
+  });
   const latestChat = useRef(null);
   const messagesEndRef = useRef(null);
 
@@ -107,14 +140,14 @@ function App() {
           if (!hideSystemMessages) {
             setChat(prevChat => appendSystemMessage(prevChat, message));
           }
+          if (message.startsWith('Current topic:')) {
+            setCurrentTopic(message.replace('Current topic:', '').trim());
+          }
         });
 
-        newConnection.on('CurrentTopic', topic => {
-          console.log('Current topic:', topic);
-          setGeneratingMessage(prev => prev ? `${prev}\nCurrent topic: ${topic}` : `Generating...\nCurrent topic: ${topic}`);
-          if (!hideSystemMessages) {
-            setChat(prevChat => appendSystemMessage(prevChat, `Current topic: ${topic}`));
-          }
+        newConnection.on('UpdateMetrics', updatedMetrics => {
+          console.log('Received updated metrics:', updatedMetrics);
+          setMetrics(updatedMetrics);
         });
 
         await newConnection.invoke('InitializeChat');
@@ -200,7 +233,7 @@ function App() {
   return (
     <div className="app-container">
       <div className="brand-page-placeholder">
-      <h2>{brand ? `${brand} Website Here` : 'Brand Page Here'}</h2>
+        <h2>{brand ? `${brand} Website Here` : 'Brand Page Here'}</h2>
       </div>
       <div className="chat-app">
         <header className="chat-header">
@@ -254,6 +287,7 @@ function App() {
           />
           <button onClick={sendMessage}>Send</button>
         </div>
+        <MetricsDisplay metrics={metrics} currentTopic={currentTopic} />
       </div>
     </div>
   );
