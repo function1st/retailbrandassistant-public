@@ -270,7 +270,7 @@ th {
 .metrics-display {
   position: absolute;
   bottom: 10px;
-  left: -300px;
+  left: -350px;
   background-color: rgba(255, 255, 255, 0.9);
   border: 1px solid #ddd;
   border-radius: 5px;
