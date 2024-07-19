@@ -169,6 +169,21 @@ public class ChatHub : Hub
         }
     }
 
+    public async Task StartNewChat()
+    {
+        string connectionId = Context.ConnectionId;
+        
+        // Clear existing chat history and related data
+        _chatHistories.TryRemove(connectionId, out _);
+        _currentTopics.TryRemove(connectionId, out _);
+        _retailContextCaches.TryRemove(connectionId, out _);
+        _sentSystemMessages.TryRemove(connectionId, out _);
+        _chatMetrics.TryRemove(connectionId, out _);
+
+        // Initialize a new chat session
+        await InitializeChat();
+    }
+
     private string GetBrandFromSystemMessage(string systemMessage)
     {
         var brandMatch = System.Text.RegularExpressions.Regex.Match(systemMessage, @"\[Your Brand\]=(\w+)");
