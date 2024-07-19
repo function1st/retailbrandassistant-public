@@ -213,6 +213,57 @@ function App() {
     }
   }
 
+  const startNewChat = async () => {
+    setChat([]);
+    setIsGenerating(true);
+    setGeneratingMessage('Starting a new chat...');
+    setCurrentTopic('');
+    setMetrics({
+      ttft: 0,
+      endToEndDuration: 0,
+      functionDuration: 0,
+      contextCharacterLength: 0,
+      totalInputTokens: 0,
+      totalOutputTokens: 0,
+      totalParallelOperationTime: 0,
+      totalParallelOperations: 0,
+      averageParallelOperationTime: 0
+    });
+    
+    if (connection && connection.state === HubConnectionState.Connected) {
+      try {
+        await connection.invoke('StartNewChat');
+      } catch (error) {
+        console.error('Error starting new chat:', error);
+        setError('Failed to start a new chat. Please try again.');
+        setIsGenerating(false);
+        setGeneratingMessage('');
+      }
+    } else {
+      // If the connection is not established, create a new one
+      const newConnection = new HubConnectionBuilder()
+        .withUrl('http://localhost:5000/chatHub', {
+          skipNegotiation: true,
+          transport: HttpTransportType.WebSockets
+        })
+        .withAutomaticReconnect()
+        .build();
+
+      setConnection(newConnection);
+
+      try {
+        await newConnection.start();
+        console.log('Connected to SignalR hub');
+        await newConnection.invoke('StartNewChat');
+      } catch (error) {
+        console.error('Failed to start new chat:', error);
+        setError('Failed to start a new chat. Please try again.');
+        setIsGenerating(false);
+        setGeneratingMessage('');
+      }
+    }
+  };
+
   if (error) {
     return (
       <div className="error-container">
@@ -238,6 +289,7 @@ function App() {
       <div className="chat-app">
         <header className="chat-header">
           <h1>{brand} Retail Brand Assistant</h1>
+          <button className="new-chat-button" onClick={startNewChat}>New</button>
         </header>
         <div className="chat-container">
           <div className="message-list">
