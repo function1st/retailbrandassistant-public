@@ -170,7 +170,7 @@ public class RetailContextPlugin
 
         var request = new
         {
-            model = "gpt-4o",
+            model = "gpt-4o-mini",
             messages = new[]
             {
                 new { role = "system", content = systemMessage },
