@@ -243,29 +243,62 @@ public class ChatHub : Hub
     {
         var chatHistory = _chatHistories[connectionId];
         var recentHistory = string.Join("\n", chatHistory.TakeLast(5).Select(m => $"{m.Role}: {m.Content}"));
+        var currentMode = _currentTopics[connectionId] == "SalesHelp" ? "SalesHelp" : "Not SalesHelp";
 
-        var promptToClassify = @$"Classify the following user input into one of these categories:
-        1. 'SalesHelp' if the user is explicitly asking for 'human' assistance, needs 'human' help with orders, returns, or account-specific issues. This should only be used for transferring to the right human sales help. Do not use this for general help if a human isn't specifically mentioned. If a transfer to human sales help has just occurred only use SalesHelp if a human is specifically being asked for in the latest user message.
-        2. 'RetailContext' if the query will benefit from real-time information from approved and official sources. This may be for specific product information, feature details, pricing, policy details, support topics, deal information, troubleshooting articles, facts about the company or directors, investor relations, etc. Nearly any topic can benefit from real-time content so this should be used frequently. If 'RetailContext' has already been leveraged for the same specific topic and a follow up question is being asked, consider using 'General' for any follow up questions about the same topic unless a new query is needed.
-        3. 'General' for any other type of query, general chitchat, or follow up questions on an existing topic where 'RetailContext' already retrieved real-time information that can be reused. 
+        var promptToClassify = @$"
+    Classify the user input into one of these categories: 'SalesHelp', 'RetailContext', or 'General'.
+    Follow these strict rules:
 
-        If a transfer to human sales help has just occurred, classify as 'General' or 'RetailContext' unless the user explicitly asks for human assistance again in their most recent message.
+    1. 'SalesHelp':
+    a) Use for HUMAN TRANSFER if:
+        - User EXPLICITLY asks for human assistance
+        - User needs help with orders, returns, or account-specific issues
+        - Keywords: 'human help', 'speak to a person', 'talk to a representative'
+        - Examples: 'I need human help with my order', 'Can I speak to a real person?'
 
-        Current mode: {(_currentTopics[connectionId] == "SalesHelp" ? "SalesHelp" : "Not SalesHelp")}
+    b) STAY in 'SalesHelp' mode (no transfer) if:
+        - User is answering transfer information questions
+        - Examples: 'personal needs', 'New order'
 
-        Recent conversation history:
-        {recentHistory}
+    c) EXIT 'SalesHelp' mode and instead leverage 'RetailContext' or 'General' if:
+        - User's query is unrelated to their previous sales/account issue
+        - User explicitly states they no longer need sales help from a human or wishes they want to place the order themselves.
+        - Examples: 'Thanks, I don't need help anymore', 'Can you tell me about your products instead?' , 'I want to do it myself'
 
-        Respond with only the category name.
+    2. 'RetailContext':
+    - Use for queries that benefit from real-time information from official sources
+    - Topics: product details, pricing, policies, support, company facts, technical support, troubleshooting, investor relations, company news, how-tos
+    - Examples: 'What's the price of Product X?', 'Tell me about your return policy' , 'How do I place an order on the site?'
+    - Do NOT use for follow-up questions on the same topic unless new info is needed
 
-        User Input: {userInput}
+    3. 'General':
+    - Use for all other queries, including:
+        - General chitchat
+        - Follow-up questions on existing topics not related to sales/account issues
+        - Queries not fitting 'SalesHelp' or 'RetailContext'
 
-        Category:";
+    Current mode: {currentMode}
+
+    Recent conversation history:
+    {recentHistory}
+
+    User Input: {userInput}
+
+    Respond with ONLY ONE word: 'SalesHelp', 'RetailContext', or 'General'.
+
+    Classification:";
 
         var classificationResult = await _chatCompletionService.GetChatMessageContentAsync(promptToClassify);
-        return classificationResult.Content?.Trim() ?? "General";
-    }
+        var classification = classificationResult.Content?.Trim().ToLower() ?? "general";
 
+        // Ensure the classification is one of the three valid options
+        return classification switch
+        {
+            "saleshelp" => "SalesHelp",
+            "retailcontext" => "RetailContext",
+            _ => "General"
+        };
+    }
     private async Task<string> ClassifyTopic(string userInput, string connectionId)
     {
         var chatHistory = _chatHistories[connectionId];
