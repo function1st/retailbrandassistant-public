@@ -19,6 +19,7 @@ After confirming, respond with the following:
 1. A message saying "Transferring you now..."
 2. Followed by a JSON object in this format:
    {"action": "transfer", "location": "[Sales Queue]"}
+3. Do not wrap the JSON object in a JSON block using "```json" 
 
 Replace [Sales Queue] with the appropriate record from the Sales Queues Table below.
 
