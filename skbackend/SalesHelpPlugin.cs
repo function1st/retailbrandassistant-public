@@ -9,17 +9,7 @@ public class SalesHelpPlugin
         [Description("The type of customer (Personal or Business)")] string customerType,
         [Description("Whether it's a new or existing order")] string orderType)
     {
-        var queue = DetermineQueue(productType, customerType);
-        return $"I'm connecting you to our {queue} for {orderType} orders. A sales representative will be with you shortly to assist you with your {productType} {orderType.ToLower()} order.";
-    }
-
-    private string DetermineQueue(string productType, string customerType)
-    {
-        if (productType == "Surface" || productType == "Xbox" || productType == "Office" || productType == "Windows")
-        {
-            return $"{productType} {customerType} Sales Queue";
-        }
-        return $"General {customerType} Sales Queue";
+        return $"I'm connecting you to our sales team for {orderType} orders. A sales representative will be with you shortly to assist you with your {productType} {orderType.ToLower()} order for {customerType} customers.";
     }
 
     [KernelFunction, Description("Determine if a user explicitly requests human assistance or sales order processing")]
