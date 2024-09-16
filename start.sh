@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Start script for Retail Brand Agent
+# Start script for Retail Brand Assistant
 
 # Make sure the scripts are executable
 chmod +x startbackend.sh startfrontend.sh

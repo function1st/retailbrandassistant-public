@@ -43,6 +43,14 @@ builder.Services.AddCors(options =>
 // Load environment variables
 DotNetEnv.Env.Load();
 
+string azureOpenAiSetting = Environment.GetEnvironmentVariable("AZURE_OPEN_AI") ?? "false";
+bool useAzureOpenAi = false;
+
+if (!Boolean.TryParse(azureOpenAiSetting, out useAzureOpenAi))
+{
+    useAzureOpenAi = false;
+}
+
 // Configure HttpClient for RetailContextPlugin
 builder.Services.AddHttpClient("ConfiguredClient").ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
 {
@@ -70,11 +78,32 @@ builder.Services.AddSingleton<RetailContextPlugin>();
 // Add Semantic Kernel services
 builder.Services.AddSingleton<Kernel>(sp =>
 {
-    IKernelBuilder kernelBuilder = Kernel.CreateBuilder()
-        .AddOpenAIChatCompletion(
-            modelId: "gpt-4o-mini",
-            apiKey: Environment.GetEnvironmentVariable("OPENAI_API_KEY")!
+    var kernelBuilder = Kernel.CreateBuilder();
+
+    if (useAzureOpenAi)
+    {
+        // Read Azure OpenAI settings
+        var azureOpenAiEndpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT")!;
+        var azureOpenAiApiKey = Environment.GetEnvironmentVariable("AZURE_OPENAI_KEY")!;
+        var azureOpenAiDeploymentName = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT_NAME")!;
+
+        kernelBuilder.AddAzureOpenAIChatCompletion(
+            deploymentName: azureOpenAiDeploymentName,
+            endpoint: azureOpenAiEndpoint,
+            apiKey: azureOpenAiApiKey
         );
+    }
+    else
+    {
+        // Read OpenAI settings
+        var openAiApiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY")!;
+        var openAiModelName = Environment.GetEnvironmentVariable("OPENAI_MODEL_NAME") ?? "gpt-4o-mini";
+
+        kernelBuilder.AddOpenAIChatCompletion(
+            modelId: openAiModelName,
+            apiKey: openAiApiKey
+        );
+    }
 
     var httpClient = new HttpClient();
     var retailContextPlugin = sp.GetRequiredService<RetailContextPlugin>();

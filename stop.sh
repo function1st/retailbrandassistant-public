@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Stop script for Retail Brand Agent
+# Stop script for Retail Brand Assistant
 
 # Define the port your backend is running on
 BACKEND_PORT=5000
@@ -9,11 +9,11 @@ BACKEND_PORT=5000
 PID=$(lsof -t -i:$BACKEND_PORT)
 
 if [ -z "$PID" ]; then
-    echo "No running instance of the backend Retail Brand Agent found on port $BACKEND_PORT."
+    echo "No running instance of the backend Retail Brand Assistant found on port $BACKEND_PORT."
 else
-    echo "Stopping backend Retail Brand Agent (PID: $PID)..."
+    echo "Stopping backend Retail Brand Assistant (PID: $PID)..."
     kill $PID
-    echo "Backend Retail Brand Agent stopped."
+    echo "Backend Retail Brand Assistant stopped."
 fi
 
 # Stop the frontend application

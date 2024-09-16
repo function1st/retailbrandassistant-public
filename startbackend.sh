@@ -14,12 +14,12 @@ export $(grep -v '^#' skbackend/.env | xargs)
 # Update Today's Date in SystemMessage.txt
 today=$(date +%m/%d/%Y)
 awk -v date="$today" '
-    /\[Today'"'"'s Date\]/ { $0 = "[Today'"'"'s Date] = " date }
+    /\[Today'"'"'s Date\]/ { $0 = "[Today'"'"'s Date]=" date }
     { print }
 ' skbackend/SystemMessage.txt > skbackend/SystemMessage.tmp && mv skbackend/SystemMessage.tmp skbackend/SystemMessage.txt
 
 echo "Updated Today's Date in SystemMessage.txt to $today"
 
-# Start the backend application in the background
+# Start the backend application
 cd skbackend
-dotnet run --project . &
+dotnet run --project .

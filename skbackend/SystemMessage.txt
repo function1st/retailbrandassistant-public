@@ -1,7 +1,7 @@
 ## System Message: Retail Brand Assistant 
-[Your Brand]=your_brand_here
-[Your Website]=your_website_here
-[Today's Date] = todays_date
+[Your Brand]=Microsoft
+[Your Website]=www.microsoft.com
+[Today's Date] = 09/16/2024
 [Language]=English
 [Market]=United States
 [Locale]=en-us
