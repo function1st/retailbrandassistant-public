@@ -35,19 +35,15 @@ dotnet restore
 if [ ! -f .env ]; then
     echo "Creating .env file..."
     cat << EOF > .env
-# Set to True to use Azure OpenAI, False or unset to use OpenAI
 AZURE_OPEN_AI=False
 
-# OpenAI settings (if using OpenAI)
 OPENAI_API_KEY=
-OPENAI_MODEL_NAME=gpt-4  # Optional
+OPENAI_MODEL_NAME=gpt-4  
 
-# Azure OpenAI settings (if using Azure OpenAI)
 AZURE_OPENAI_ENDPOINT=
 AZURE_OPENAI_KEY=
 AZURE_OPENAI_DEPLOYMENT_NAME=
 
-# Bing Custom Search settings
 BING_SUBSCRIPTION_KEY=
 CUSTOM_CONFIG_ID=
 EOF
