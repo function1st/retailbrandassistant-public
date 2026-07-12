@@ -1,10 +1,10 @@
-# Retail Brand Assistant
+# Retail Brand Assistant msdmsdf
 
 This project is a configurable Retail Brand Assistant built using **Microsoft Semantic Kernel** for AI Orchestration, OpenAI or Azure OpenAI GPT models, and **Microsoft Bing Custom Search** for brand-specific search results. Using the Retail Brand Assistant allows brands to rapidly test and deploy a fully functioning AI Assistant for customers that uses real-time page information to answer questions with high accuracy and consistency.
 
 | When retail brand experiences fail like this... | Retail Brand Assistant succeeds... |
-|:-----------------------------------------------:|:----------------------------------:|
-| ![Screenshot](https://github.com/function1st/retailbrandassistant-public/assets/129132283/43d368a7-f62c-4e0d-9bd8-76f1e2fe00a1) | ![Screenshot](https://github.com/function1st/retailbrandassistant-public/assets/129132283/ec8f3794-be92-43b3-9c0b-7ee35f23fc4e) |
+| :---------------------------------------------: | :--------------------------------: |
+|                                                 |                                    |
 
 ## Prerequisites
 
@@ -100,27 +100,21 @@ project_root/
 ### Initial Setup
 
 1. **Clone the repository:**
-
    ```bash
    git clone https://github.com/function1st/retailbrandassistant-public.git
    cd retailbrandassistant-public
    ```
-
 2. **Make the scripts executable and run the setup script:**
-
    ```bash
    chmod +x setup.sh start.sh startbackend.sh startfrontend.sh stop.sh
    ./setup.sh
    ```
-
 3. **Follow the prompts to enter your brand name, language, market, and locale.**
-
-4. **Edit the `.env` file and add your API keys:**
+4. **Edit the&#x20;**`.env`**&#x20;file and add your API keys:**
 
    Depending on whether you are using OpenAI or Azure OpenAI, you will need to provide different environment variables.
 
    **For OpenAI:**
-
    ```ini
    # .env file in skbackend directory
 
@@ -131,9 +125,7 @@ project_root/
    BING_SUBSCRIPTION_KEY=your_bing_subscription_key_here
    CUSTOM_CONFIG_ID=your_bing_custom_config_id_here
    ```
-
    **For Azure OpenAI:**
-
    ```ini
    # .env file in skbackend directory
 
@@ -145,28 +137,22 @@ project_root/
    BING_SUBSCRIPTION_KEY=your_bing_subscription_key_here
    CUSTOM_CONFIG_ID=your_bing_custom_config_id_here
    ```
-
    **Note:** The `AZURE_OPEN_AI` environment variable determines whether the application uses Azure OpenAI or OpenAI. If `AZURE_OPEN_AI` is not set or set to `False`, the application defaults to OpenAI.
 
 ### Usage
 
 1. **To start the application:**
-
    ```bash
    ./start.sh
    ```
-
    This will automatically update the current date in the system message and start both the backend and frontend.
-
-2. **Interact with the Retail Brand Assistant through your web browser at `http://localhost:3000`.**
-
+2. **Interact with the Retail Brand Assistant through your web browser at&#x20;**`http://localhost:3000`**.**
 3. **To stop the application:**
-
    ```bash
    ./stop.sh
    ```
 
-## Configuration
+## Configure
 
 The setup script helps you configure the basic brand information and site information. If you need to change this information later, you can either run the setup script again or manually edit the `SystemMessage.txt` file located in the `skbackend` directory.
 
